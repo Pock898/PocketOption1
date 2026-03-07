@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#121212"/>
+  <title>TradeX Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00E5FF', success: '#00C853', danger: '#D50000',
+            bgDark: '#121212', cardDark: '#1E1E1E', navDark: '#181818'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .nav-item.active { color: #00E5FF; }
+    .nav-item.active i { font-size: 1.5rem; }
+    .btn-ripple { position: relative; overflow: hidden; transition: transform 0.1s; }
+    .btn-ripple:active { transform: scale(0.95); }
+    .page-section { display: none; animation: fadeIn 0.25s ease-out; }
+    .page-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    /* Modal */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; padding: 1rem; }
+    .modal.active { display: flex; }
+    .modal-content { background: #1E1E1E; border-radius: 20px; width: 100%; max-width: 420px; max-height: 92vh; overflow-y: auto; border: 1px solid #333; }
+    .modal-header { padding: 1rem 1.25rem; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 1.25rem; }
+    .step { display: none; }
+    .step.active { display: block; }
+    .input-field { width: 100%; background: #2A2A2A; border: 1px solid #444; border-radius: 10px; padding: 12px 14px; color: #fff; outline: none; font-size: 1rem; }
+    .input-field:focus { border-color: #00E5FF; }
+    #authScreen { position: fixed; inset: 0; background: #121212; z-index: 200; display: flex; flex-direction: column; justify-content: center; padding: 2rem; overflow-y: auto; }
+    #authScreen.hidden { display: none; }
+    #appScreen { display: none; height: 100vh; flex-direction: column; }
+    #appScreen.visible { display: flex; }
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #1E1E1E; border: 1px solid #00E5FF; color: #fff; padding: 12px 20px; border-radius: 12px; z-index: 300; display: none; animation: slideUp 0.3s ease; max-width: 90%; text-align: center; font-size: 0.9rem; }
+    .toast.show { display: block; }
+    @keyframes slideUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+    /* Trade timer */
+    #tradeTimerOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:80; justify-content:center; align-items:center; flex-direction:column; }
+    #tradeTimerOverlay.show { display:flex; }
+    #timerRing { width:120px; height:120px; position:relative; }
+    #timerRing svg { transform: rotate(-90deg); }
+    #timerText { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:2.5rem; font-weight:900; }
+    @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+    .timer-pulse { animation: pulse 1s infinite; }
+
+    /* More slide-up */
+    #moreMenu { position:fixed; bottom:0; left:0; right:0; background:#1A1A1A; border-top:1px solid #333; border-radius:20px 20px 0 0; padding:1.5rem 1rem; z-index:90; transform:translateY(100%); transition:transform 0.3s ease; }
+    #moreMenu.open { transform:translateY(0); }
+    #moreOverlay { display:none; position:fixed; inset:0; z-index:89; background:rgba(0,0,0,0.5); }
+    #moreOverlay.show { display:block; }
+
+    /* VIP badge */
+    .vip-bronze { background: linear-gradient(135deg,#cd7f32,#a0522d); }
+    .vip-silver { background: linear-gradient(135deg,#C0C0C0,#808080); }
+    .vip-gold { background: linear-gradient(135deg,#FFD700,#FFA500); }
+    .vip-diamond { background: linear-gradient(135deg,#00E5FF,#0066FF); }
+
+    /* Chat bubble */
+    .chat-msg { max-width:75%; border-radius:16px; padding:10px 14px; font-size:0.875rem; line-height:1.4; }
+    .chat-user { background:#00E5FF22; border:1px solid #00E5FF44; margin-left:auto; }
+    .chat-support { background:#2A2A2A; margin-right:auto; }
+
+    /* Asset chip */
+    .asset-chip { padding:6px 14px; border-radius:20px; border:1px solid #444; font-size:0.8rem; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+    .asset-chip.active { background:#00E5FF; color:#000; border-color:#00E5FF; font-weight:700; }
+
+    /* Leaderboard */
+    .lb-row { display:flex; align-items:center; gap:12px; padding:12px; background:#1E1E1E; border-radius:12px; border:1px solid #2A2A2A; }
+    .lb-rank { width:28px; text-align:center; font-weight:900; }
+    .lb-rank.top1 { color:#FFD700; }
+    .lb-rank.top2 { color:#C0C0C0; }
+    .lb-rank.top3 { color:#cd7f32; }
+
+    /* Refer card */
+    .ref-stat { flex:1; text-align:center; background:#1E1E1E; border-radius:14px; padding:14px 8px; border:1px solid #2A2A2A; }
+  </style>
+</head>
+<body class="h-screen w-screen">
+
+  <!-- 🔐 AUTH SCREEN -->
+  <div id="authScreen">
+    <div class="text-center mb-8">
+      <div class="text-4xl font-black mb-1" style="background:linear-gradient(135deg,#00E5FF,#0066FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">TradeX Pro</div>
+      <p class="text-gray-400 text-sm">Trade Crypto, Forex & Commodities</p>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <input type="email" id="loginEmail" class="input-field mb-3" placeholder="Email"/>
+      <input type="password" id="loginPass" class="input-field mb-4" placeholder="Password"/>
+      <button onclick="handleLogin()" class="w-full bg-primary text-black font-bold py-3 rounded-xl btn-ripple mb-3">Login</button>
+      <div class="flex items-center gap-3 mb-3">
+        <div class="flex-1 h-px bg-gray-700"></div><span class="text-gray-500 text-xs">OR</span><div class="flex-1 h-px bg-gray-700"></div>
+      </div>
+      <button onclick="handleGoogleLogin()" class="w-full bg-white text-gray-800 font-bold py-3 rounded-xl btn-ripple mb-4 flex items-center justify-center gap-2">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"/> Continue with Google
+      </button>
+      <p class="text-center text-sm text-gray-400">New here? <span class="text-primary cursor-pointer" onclick="toggleAuth('signup')">Create Account</span></p>
+    </div>
+
+    <!-- Signup Form -->
+    <div id="signupForm" style="display:none">
+      <input type="text" id="signupName" class="input-field mb-3" placeholder="Full Name"/>
+      <input type="email" id="signupEmail" class="input-field mb-3" placeholder="Email"/>
+      <input type="password" id="signupPass" class="input-field mb-3" placeholder="Password (min 6 chars)"/>
+      <input type="text" id="signupRef" class="input-field mb-4" placeholder="Referral Code (Optional)"/>
+      <button onclick="handleSignup()" class="w-full bg-success text-white font-bold py-3 rounded-xl btn-ripple mb-3">Create Account</button>
+      <div class="flex items-center gap-3 mb-3">
+        <div class="flex-1 h-px bg-gray-700"></div><span class="text-gray-500 text-xs">OR</span><div class="flex-1 h-px bg-gray-700"></div>
+      </div>
+      <button onclick="handleGoogleLogin()" class="w-full bg-white text-gray-800 font-bold py-3 rounded-xl btn-ripple mb-4 flex items-center justify-center gap-2">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"/> Continue with Google
+      </button>
+      <p class="text-center text-sm text-gray-400">Already have account? <span class="text-primary cursor-pointer" onclick="toggleAuth('login')">Login</span></p>
+    </div>
+    <p class="text-center text-xs text-gray-500 mt-6">By continuing, you agree to our Terms & Privacy</p>
+  </div>
+
+  <!-- 📱 MAIN APP -->
+  <div id="appScreen">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center px-4 py-3 bg-cardDark shadow-md z-10">
+      <div>
+        <span class="text-xs text-gray-400">Balance</span>
+        <div class="text-xl font-bold">₹<span id="balance">0.00</span></div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="vipBadge" class="text-xs font-bold px-2 py-1 rounded-full vip-bronze">BRONZE</div>
+        <button onclick="openModal('deposit')" class="bg-primary/20 text-primary px-3 py-1.5 rounded-lg text-sm font-medium btn-ripple">+ Add</button>
+        <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=00E5FF" class="w-9 h-9 rounded-full border-2 border-primary cursor-pointer" onclick="switchTab('profile')"/>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto no-scrollbar">
+
+      <!-- HOME -->
+      <section id="home" class="page-section active p-4">
+        <!-- Asset Chips -->
+        <div class="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1">
+          <div class="asset-chip active" onclick="selectAsset(this,'BTC/USD',4823050,'https://cryptologos.cc/logos/bitcoin-btc-logo.png')">BTC/USD</div>
+          <div class="asset-chip" onclick="selectAsset(this,'ETH/USD',258400,'https://cryptologos.cc/logos/ethereum-eth-logo.png')">ETH/USD</div>
+          <div class="asset-chip" onclick="selectAsset(this,'EUR/USD',90.15,null)">EUR/USD</div>
+          <div class="asset-chip" onclick="selectAsset(this,'GOLD',235800,null)">GOLD</div>
+          <div class="asset-chip" onclick="selectAsset(this,'OIL',7210,null)">OIL</div>
+          <div class="asset-chip" onclick="selectAsset(this,'BNB/USD',55620,'https://cryptologos.cc/logos/bnb-bnb-logo.png')">BNB/USD</div>
+        </div>
+
+        <div class="bg-cardDark p-4 rounded-2xl mb-4 border border-gray-800">
+          <div class="flex justify-between items-start mb-3">
+            <div class="flex items-center gap-2">
+              <img id="homeAssetIcon" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" class="w-7 h-7" onerror="this.style.display='none'"/>
+              <div>
+                <div class="font-bold text-lg" id="homeAssetName">BTC/USD</div>
+                <div class="text-xs text-gray-400" id="homeAssetSub">Bitcoin</div>
+              </div>
+            </div>
+            <span id="homeChangePct" class="text-success text-sm bg-success/10 px-2 py-1 rounded">+2.4%</span>
+          </div>
+          <div class="text-3xl font-bold text-primary">₹<span id="assetPrice">48,23,050</span></div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="bg-cardDark p-3 rounded-xl border border-gray-800">
+            <div class="text-xs text-gray-400">Today's P&L</div>
+            <div class="font-bold text-sm" id="todayPnl">₹0.00</div>
+          </div>
+          <div class="bg-cardDark p-3 rounded-xl border border-gray-800">
+            <div class="text-xs text-gray-400">Win Rate</div>
+            <div class="font-bold text-sm" id="winRateDisplay">0%</div>
+          </div>
+          <div class="bg-cardDark p-3 rounded-xl border border-gray-800">
+            <div class="text-xs text-gray-400">Trades</div>
+            <div class="font-bold text-sm" id="tradeCountDisplay">0</div>
+          </div>
+        </div>
+
+        <button onclick="switchTab('trade')" class="w-full bg-gradient-to-r from-primary to-blue-600 py-4 rounded-xl font-bold text-lg btn-ripple mb-4">
+          🚀 Start Trading Now
+        </button>
+
+        <h3 class="text-gray-400 text-sm mb-3">Recent Trades</h3>
+        <div id="recentTrades" class="space-y-2">
+          <div class="text-center text-gray-500 py-4 text-sm">No trades yet</div>
+        </div>
+      </section>
+
+      <!-- TRADE -->
+      <section id="trade" class="page-section" style="height:calc(100vh - 120px); display:none; flex-direction:column;">
+        <div id="chart" class="w-full bg-cardDark" style="height:55%;"></div>
+        <div class="bg-navDark p-4 rounded-t-3xl border-t border-gray-800 flex-1 overflow-y-auto no-scrollbar">
+          <!-- Asset selector in trade -->
+          <div class="flex gap-2 overflow-x-auto no-scrollbar mb-3 pb-1">
+            <div class="asset-chip active" onclick="selectTradeAsset(this,'BTC/USD',4823050)">BTC</div>
+            <div class="asset-chip" onclick="selectTradeAsset(this,'ETH/USD',258400)">ETH</div>
+            <div class="asset-chip" onclick="selectTradeAsset(this,'EUR/USD',90.15)">EUR/USD</div>
+            <div class="asset-chip" onclick="selectTradeAsset(this,'GOLD',235800)">GOLD</div>
+            <div class="asset-chip" onclick="selectTradeAsset(this,'OIL',7210)">OIL</div>
+          </div>
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <label class="text-xs text-gray-400">Amount (₹)</label>
+              <input type="number" id="tradeAmount" value="500" min="10" class="bg-cardDark text-white font-bold px-3 py-2 rounded-lg w-28 border border-gray-700 outline-none focus:border-primary block mt-1">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400">Duration</label>
+              <select id="tradeTime" class="bg-cardDark text-white font-bold px-3 py-2 rounded-lg border border-gray-700 outline-none block mt-1">
+                <option value="30">30 sec</option>
+                <option value="60" selected>1 min</option>
+                <option value="120">2 min</option>
+                <option value="300">5 min</option>
+              </select>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-gray-400">Payout</div>
+              <div class="text-success font-bold text-lg">+82%</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="placeTrade('call')" class="btn-ripple bg-success text-white py-4 rounded-xl font-bold text-lg flex flex-col items-center">
+              <i class="ri-arrow-up-line text-2xl"></i> CALL
+            </button>
+            <button onclick="placeTrade('put')" class="btn-ripple bg-danger text-white py-4 rounded-xl font-bold text-lg flex flex-col items-center">
+              <i class="ri-arrow-down-line text-2xl"></i> PUT
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- RANK / LEADERBOARD -->
+      <section id="rank" class="page-section p-4">
+        <!-- Tournament Countdown -->
+        <div class="bg-gradient-to-r from-purple-900 to-blue-900 p-4 rounded-2xl mb-5 border border-purple-700">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <div class="text-xs text-purple-300">🏆 Weekly Tournament</div>
+              <div class="font-bold text-lg">Top 10 Win Prizes!</div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-gray-400">Ends in</div>
+              <div class="text-primary font-mono font-bold text-lg" id="tournamentCountdown">00:00:00</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center mt-2">
+            <div class="bg-yellow-500/20 rounded-xl p-2"><div class="text-yellow-400 font-bold">₹5,000</div><div class="text-xs text-gray-400">#1 Prize</div></div>
+            <div class="bg-gray-500/20 rounded-xl p-2"><div class="text-gray-300 font-bold">₹2,500</div><div class="text-xs text-gray-400">#2 Prize</div></div>
+            <div class="bg-orange-500/20 rounded-xl p-2"><div class="text-orange-400 font-bold">₹1,000</div><div class="text-xs text-gray-400">#3 Prize</div></div>
+          </div>
+        </div>
+
+        <!-- My Rank card -->
+        <div class="bg-cardDark p-4 rounded-xl border border-gray-700 mb-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold" id="myRankNum">-</div>
+            <div>
+              <div class="font-bold text-sm" id="myRankName">Loading...</div>
+              <div class="text-xs text-gray-400">Your Rank</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-success font-bold" id="myRankProfit">₹0</div>
+            <div class="text-xs text-gray-400">Total Profit</div>
+          </div>
+        </div>
+
+        <h3 class="text-gray-400 text-sm mb-3">🏆 Top Traders</h3>
+        <div id="leaderboard" class="space-y-2">
+          <div class="text-center text-gray-500 py-6 text-sm">Loading leaderboard...</div>
+        </div>
+      </section>
+
+      <!-- REFER -->
+      <section id="refer" class="page-section p-4">
+        <div class="text-center mb-5">
+          <div class="text-4xl mb-2">🎁</div>
+          <h2 class="text-xl font-bold">Refer & Earn</h2>
+          <p class="text-gray-400 text-sm mt-1">Earn ₹100 for every friend who deposits</p>
+        </div>
+
+        <div class="bg-gradient-to-r from-primary/20 to-blue-600/20 border border-primary/30 p-4 rounded-2xl mb-5">
+          <div class="text-xs text-gray-400 mb-1">Your Referral Code</div>
+          <div class="flex items-center justify-between">
+            <div class="text-2xl font-black font-mono text-primary" id="refCodeDisplay">REF_XXXX</div>
+            <button onclick="copyRefCode()" class="bg-primary text-black text-sm font-bold px-4 py-2 rounded-lg btn-ripple">Copy</button>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mb-5">
+          <div class="ref-stat">
+            <div class="text-xl font-bold text-primary" id="refCount">0</div>
+            <div class="text-xs text-gray-400">Friends</div>
+          </div>
+          <div class="ref-stat">
+            <div class="text-xl font-bold text-success" id="refEarned">₹0</div>
+            <div class="text-xs text-gray-400">Earned</div>
+          </div>
+          <div class="ref-stat">
+            <div class="text-xl font-bold text-yellow-400" id="refPending">₹0</div>
+            <div class="text-xs text-gray-400">Pending</div>
+          </div>
+        </div>
+
+        <button onclick="shareWhatsApp()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold btn-ripple flex items-center justify-center gap-2 mb-3">
+          <i class="ri-whatsapp-line text-2xl"></i> Share on WhatsApp
+        </button>
+        <button onclick="copyRefLink()" class="w-full bg-cardDark border border-gray-700 text-white py-3 rounded-xl font-bold btn-ripple flex items-center justify-center gap-2">
+          <i class="ri-link text-lg"></i> Copy Referral Link
+        </button>
+
+        <div class="mt-6">
+          <h3 class="text-gray-400 text-sm mb-3">How it works</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 bg-cardDark p-3 rounded-xl"><div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">1</div><div class="text-sm">Share your referral code with friends</div></div>
+            <div class="flex items-center gap-3 bg-cardDark p-3 rounded-xl"><div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">2</div><div class="text-sm">Friend signs up using your code</div></div>
+            <div class="flex items-center gap-3 bg-cardDark p-3 rounded-xl"><div class="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center font-bold text-sm">3</div><div class="text-sm">You earn ₹100 when they make first deposit</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WALLET -->
+      <section id="wallet" class="page-section p-4">
+        <div class="bg-gradient-to-r from-primary to-blue-600 p-5 rounded-2xl mb-5 shadow-lg">
+          <div class="text-sm opacity-90">Real Account Balance</div>
+          <div class="text-4xl font-bold my-2">₹<span id="walletBalance">0.00</span></div>
+          <div class="flex gap-3">
+            <button onclick="openModal('deposit')" class="flex-1 bg-white text-blue-700 py-3 rounded-xl font-bold btn-ripple">+ Add Money</button>
+            <button onclick="openModal('withdraw')" class="flex-1 bg-blue-800/60 text-white py-3 rounded-xl font-bold btn-ripple">Withdraw</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-5">
+          <div class="bg-cardDark p-4 rounded-xl border border-gray-700">
+            <div class="text-xs text-gray-400">Total Deposited</div>
+            <div class="text-lg font-bold text-success">₹<span id="totalDeposited">0.00</span></div>
+          </div>
+          <div class="bg-cardDark p-4 rounded-xl border border-gray-700">
+            <div class="text-xs text-gray-400">Total Withdrawn</div>
+            <div class="text-lg font-bold text-primary">₹<span id="totalWithdrawn">0.00</span></div>
+          </div>
+        </div>
+
+        <h3 class="text-gray-400 text-sm mb-3">Transaction History</h3>
+        <div id="txnHistory" class="space-y-3">
+          <div class="text-center text-gray-500 py-8">No transactions yet</div>
+        </div>
+      </section>
+
+      <!-- PROFILE -->
+      <section id="profile" class="page-section p-4">
+        <div class="text-center mb-5">
+          <div class="relative inline-block">
+            <img id="profileAvatar" src="https://ui-avatars.com/api/?name=User&background=00E5FF" class="w-20 h-20 rounded-full mx-auto border-4 border-cardDark"/>
+            <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-success border-2 border-bgDark"></div>
+          </div>
+          <h3 class="text-xl font-bold mt-3" id="profileName">User</h3>
+          <span class="text-gray-400 text-sm" id="userEmail"></span>
+          <div class="flex justify-center mt-2">
+            <div id="profileVipBadge" class="text-xs font-bold px-3 py-1 rounded-full vip-bronze">🥉 BRONZE</div>
+          </div>
+        </div>
+
+        <!-- VIP Tiers -->
+        <div class="bg-cardDark rounded-2xl p-4 mb-4 border border-gray-800">
+          <div class="text-sm font-bold mb-3 text-gray-300">VIP Tiers</div>
+          <div class="grid grid-cols-4 gap-2 text-center text-xs">
+            <div class="p-2 rounded-lg vip-bronze opacity-80"><div class="font-bold">Bronze</div><div class="text-gray-300">₹0+</div></div>
+            <div class="p-2 rounded-lg vip-silver opacity-60"><div class="font-bold">Silver</div><div class="text-gray-300">₹5K+</div></div>
+            <div class="p-2 rounded-lg vip-gold opacity-60"><div class="font-bold">Gold</div><div class="text-gray-300">₹25K+</div></div>
+            <div class="p-2 rounded-lg vip-diamond opacity-60"><div class="font-bold">Diamond</div><div class="text-gray-300">₹1L+</div></div>
+          </div>
+        </div>
+
+        <div class="bg-cardDark rounded-2xl overflow-hidden border border-gray-800">
+          <div class="p-4 border-b border-gray-700 flex justify-between items-center cursor-pointer" onclick="openModal('kyc')">
+            <div class="flex items-center gap-2"><i class="ri-shield-check-line text-primary"></i><span>KYC Verification</span></div>
+            <div class="flex items-center gap-2"><span class="text-yellow-400 text-sm" id="kycStatus">Pending</span><i class="ri-arrow-right-s-line text-gray-500"></i></div>
+          </div>
+          <div class="p-4 border-b border-gray-700 flex justify-between items-center cursor-pointer" onclick="openModal('tradeHistory')">
+            <div class="flex items-center gap-2"><i class="ri-history-line text-primary"></i><span>Trade History</span></div>
+            <i class="ri-arrow-right-s-line text-gray-500"></i>
+          </div>
+          <div class="p-4 border-b border-gray-700 flex justify-between items-center cursor-pointer" onclick="openModal('support')">
+            <div class="flex items-center gap-2"><i class="ri-customer-service-2-line text-primary"></i><span>Live Support</span></div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-success inline-block"></span><i class="ri-arrow-right-s-line text-gray-500"></i></div>
+          </div>
+          <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+            <div class="flex items-center gap-2"><i class="ri-gift-line text-primary"></i><span>Referral Code</span></div>
+            <span class="text-primary font-mono font-bold" id="refCode">Loading...</span>
+          </div>
+          <div class="p-4 text-danger cursor-pointer flex items-center gap-2" id="logoutBtn">
+            <i class="ri-logout-box-r-line"></i><span>Logout</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Nav (5 tabs) -->
+    <nav class="bg-navDark border-t border-gray-800 flex justify-around py-2 px-1 z-20 flex-shrink-0">
+      <div class="nav-item active text-center w-14 cursor-pointer flex flex-col items-center py-1" onclick="switchTabNav(event,'home')">
+        <i class="ri-home-4-fill text-xl"></i><div class="text-[9px] mt-0.5">Home</div>
+      </div>
+      <div class="nav-item text-center w-14 cursor-pointer flex flex-col items-center py-1" onclick="switchTabNav(event,'trade')">
+        <i class="ri-line-chart-line text-xl"></i><div class="text-[9px] mt-0.5">Trade</div>
+      </div>
+      <div class="nav-item text-center w-14 cursor-pointer flex flex-col items-center py-1" onclick="switchTabNav(event,'rank')">
+        <i class="ri-trophy-line text-xl"></i><div class="text-[9px] mt-0.5">Rank</div>
+      </div>
+      <div class="nav-item text-center w-14 cursor-pointer flex flex-col items-center py-1" onclick="switchTabNav(event,'refer')">
+        <i class="ri-gift-line text-xl"></i><div class="text-[9px] mt-0.5">Refer</div>
+      </div>
+      <div class="nav-item text-center w-14 cursor-pointer flex flex-col items-center py-1" onclick="switchTabNav(event,'wallet')">
+        <i class="ri-wallet-3-line text-xl"></i><div class="text-[9px] mt-0.5">Wallet</div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- TRADE TIMER OVERLAY -->
+  <div id="tradeTimerOverlay">
+    <div class="text-center timer-pulse">
+      <div class="text-lg font-bold mb-2" id="timerTradeInfo">BTC/USD · CALL</div>
+      <div id="timerRing">
+        <svg viewBox="0 0 120 120" width="120" height="120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#2A2A2A" stroke-width="8"/>
+          <circle id="timerArc" cx="60" cy="60" r="52" fill="none" stroke="#00E5FF" stroke-width="8" stroke-dasharray="327" stroke-dashoffset="0" stroke-linecap="round"/>
+        </svg>
+        <div id="timerText" class="text-primary">60</div>
+      </div>
+      <div class="text-gray-400 text-sm mt-2">Waiting for result...</div>
+      <div class="text-white font-bold mt-1" id="timerAmtInfo">₹500</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODALS ═══════════════ -->
+
+  <!-- DEPOSIT MODAL -->
+  <div id="depositModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="font-bold text-lg">Deposit Money</h3>
+        <button onclick="closeModal('deposit')" class="text-gray-400"><i class="ri-close-line text-xl"></i></button>
+      </div>
+      <div id="depositStep1" class="step active modal-body">
+        <div class="mb-4">
+          <label class="block text-sm text-gray-400 mb-2">Enter Amount (₹)</label>
+          <input type="number" id="depositAmount" class="input-field" placeholder="Min ₹100" min="100" value="500">
+        </div>
+        <div class="grid grid-cols-4 gap-2 mb-4">
+          <button onclick="setDepAmt(500)" class="bg-gray-800 text-sm py-2 rounded-lg btn-ripple">₹500</button>
+          <button onclick="setDepAmt(1000)" class="bg-gray-800 text-sm py-2 rounded-lg btn-ripple">₹1K</button>
+          <button onclick="setDepAmt(2000)" class="bg-gray-800 text-sm py-2 rounded-lg btn-ripple">₹2K</button>
+          <button onclick="setDepAmt(5000)" class="bg-gray-800 text-sm py-2 rounded-lg btn-ripple">₹5K</button>
+        </div>
+        <div class="bg-gray-800/60 p-3 rounded-xl mb-4 border border-gray-700">
+          <p class="text-xs text-gray-400">🔒 Secure payment via Instamojo</p>
+        </div>
+        <button onclick="goToPayment()" class="w-full bg-primary text-black font-bold py-3 rounded-xl btn-ripple">Open Instamojo →</button>
+        <p class="text-center text-xs text-gray-500 mt-2">instamojo.com/@rajeshjani121</p>
+      </div>
+      <div id="depositStep2" class="step modal-body">
+        <div class="text-center mb-4">
+          <i class="ri-checkbox-circle-line text-success text-4xl"></i>
+          <p class="text-sm text-gray-300 mt-2">Payment Done? Submit details below</p>
+        </div>
+        <div class="space-y-3">
+          <input type="text" id="paymentId" class="input-field" placeholder="Payment ID *">
+          <input type="text" id="utrNumber" class="input-field" placeholder="UTR Number (Optional)">
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button onclick="backToStep1()" class="flex-1 bg-gray-700 py-3 rounded-xl font-bold">← Back</button>
+          <button onclick="submitDeposit()" class="flex-1 bg-success py-3 rounded-xl font-bold">Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WITHDRAW MODAL -->
+  <div id="withdrawModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="font-bold text-lg">Withdraw Money</h3>
+        <button onclick="closeModal('withdraw')" class="text-gray-400"><i class="ri-close-line text-xl"></i></button>
+      </div>
+      <div class="modal-body space-y-4">
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Available Balance</label>
+          <div class="text-2xl font-bold">₹<span id="withdrawBalance">0.00</span></div>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Amount (₹) *</label>
+          <input type="number" id="withdrawAmount" class="input-field" placeholder="Min ₹200" min="200">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Withdraw To *</label>
+          <select id="withdrawMethod" class="input-field">
+            <option value="upi">UPI ID</option>
+            <option value="bank">Bank Account</option>
+            <option value="paytm">Paytm</option>
+          </select>
+        </div>
+        <div id="upiField"><input type="text" id="upiId" class="input-field" placeholder="yourname@upi"></div>
+        <div id="bankField" style="display:none" class="space-y-3">
+          <input type="text" id="accName" class="input-field" placeholder="Account Holder Name">
+          <input type="text" id="accNum" class="input-field" placeholder="Account Number">
+          <input type="text" id="ifsc" class="input-field" placeholder="IFSC Code">
+        </div>
+        <div id="paytmField" style="display:none">
+          <input type="text" id="paytmNum" class="input-field" placeholder="Paytm Number">
+        </div>
+        <button onclick="submitWithdraw()" class="w-full bg-primary text-black font-bold py-3 rounded-xl btn-ripple">Request Withdrawal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KYC MODAL -->
+  <div id="kycModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="font-bold text-lg">KYC Verification</h3>
+        <button onclick="closeModal('kyc')" class="text-gray-400"><i class="ri-close-line text-xl"></i></button>
+      </div>
+      <div class="modal-body space-y-4">
+        <div class="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-xl text-sm text-yellow-300">
+          ⚠️ KYC is required to withdraw above ₹10,000
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Full Name (as on ID)</label>
+          <input type="text" id="kycName" class="input-field" placeholder="Full legal name">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Date of Birth</label>
+          <input type="date" id="kycDob" class="input-field" style="color-scheme:dark">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">ID Type</label>
+          <select id="kycIdType" class="input-field">
+            <option value="aadhaar">Aadhaar Card</option>
+            <option value="pan">PAN Card</option>
+            <option value="passport">Passport</option>
+            <option value="driving">Driving License</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">ID Number</label>
+          <input type="text" id="kycIdNum" class="input-field" placeholder="Enter ID number">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Selfie / Photo</label>
+          <div class="border-2 border-dashed border-gray-600 rounded-xl p-6 text-center cursor-pointer" onclick="document.getElementById('kycPhoto').click()">
+            <i class="ri-camera-line text-3xl text-gray-500"></i>
+            <div class="text-sm text-gray-400 mt-1">Tap to upload photo</div>
+            <div class="text-xs text-gray-500" id="kycPhotoName">No file selected</div>
+          </div>
+          <input type="file" id="kycPhoto" accept="image/*" style="display:none" onchange="document.getElementById('kycPhotoName').textContent=this.files[0]?.name||'No file selected'">
+        </div>
+        <button onclick="submitKYC()" class="w-full bg-primary text-black font-bold py-3 rounded-xl btn-ripple">Submit KYC</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRADE HISTORY MODAL -->
+  <div id="tradeHistoryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="font-bold text-lg">Trade History</h3>
+        <button onclick="closeModal('tradeHistory')" class="text-gray-400"><i class="ri-close-line text-xl"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="tradeHistoryList" class="space-y-3">
+          <div class="text-center text-gray-500 py-8">No trades yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPPORT CHAT MODAL -->
+  <div id="supportModal" class="modal">
+    <div class="modal-content" style="display:flex;flex-direction:column;height:80vh;max-height:600px;">
+      <div class="modal-header flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center"><i class="ri-customer-service-2-line text-primary"></i></div>
+          <div>
+            <div class="font-bold text-sm">Support Agent</div>
+            <div class="flex items-center gap-1 text-xs text-success"><span class="w-1.5 h-1.5 rounded-full bg-success inline-block"></span> Online</div>
+          </div>
+        </div>
+        <button onclick="closeModal('support')" class="text-gray-400"><i class="ri-close-line text-xl"></i></button>
+      </div>
+      <div id="chatMessages" class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3" style="min-height:0"></div>
+      <div class="p-3 border-t border-gray-700 flex-shrink-0 flex gap-2">
+        <input type="text" id="chatInput" class="input-field" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendChatMsg()">
+        <button onclick="sendChatMsg()" class="bg-primary text-black px-4 py-2 rounded-xl font-bold btn-ripple flex-shrink-0"><i class="ri-send-plane-fill"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ═══════════════ JAVASCRIPT ═══════════════ -->
+  <script>
+    // ===== 🔥 FIREBASE =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyCHZ4_PhE2gbJBDzipArubqJpHW88Alw5o",
+      authDomain: "tournament-62f77.firebaseapp.com",
+      databaseURL: "https://tournament-62f77-default-rtdb.firebaseio.com",
+      projectId: "tournament-62f77",
+      storageBucket: "tournament-62f77.firebasestorage.app",
+      messagingSenderId: "59905181993",
+      appId: "1:59905181993:web:8ad4f721ac50c09c478f38",
+      measurementId: "G-QHHJ1BJWMP"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    // ===== 🌍 GLOBALS =====
+    let currentUser = null;
+    let balance = 0, totalDeposited = 0, totalWithdrawn = 0;
+    let chart = null, series = null, currentPrice = 4823050;
+    let todayPnl = 0, totalTrades = 0, wonTrades = 0;
+    let tradeHistoryLocal = [];
+    const INSTAMOJO = 'https://www.instamojo.com/@rajeshjani121/';
+    let currentAsset = { name:'BTC/USD', price:4823050, sub:'Bitcoin' };
+    const ASSETS = {
+      'BTC/USD': { price:4823050, sub:'Bitcoin', icon:'https://cryptologos.cc/logos/bitcoin-btc-logo.png' },
+      'ETH/USD': { price:258400, sub:'Ethereum', icon:'https://cryptologos.cc/logos/ethereum-eth-logo.png' },
+      'EUR/USD': { price:90.15, sub:'Forex', icon:null },
+      'GOLD':    { price:235800, sub:'Commodity', icon:null },
+      'OIL':     { price:7210, sub:'Commodity', icon:null },
+      'BNB/USD': { price:55620, sub:'Binance Coin', icon:'https://cryptologos.cc/logos/bnb-bnb-logo.png' }
+    };
+
+    // ===== 🔐 AUTH =====
+    function toggleAuth(view) {
+      document.getElementById('loginForm').style.display = (view==='login')?'block':'none';
+      document.getElementById('signupForm').style.display = (view==='signup')?'block':'none';
+    }
+
+    async function handleSignup() {
+      const name = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const pass = document.getElementById('signupPass').value;
+      const refInput = document.getElementById('signupRef').value.trim().toUpperCase();
+      if (!name || !email || pass.length < 6) { showToast('Please fill all fields correctly'); return; }
+      try {
+        const { user } = await auth.createUserWithEmailAndPassword(email, pass);
+        const myRefCode = 'REF_' + Math.random().toString(36).substr(2,6).toUpperCase();
+        await db.ref('users/' + user.uid).set({
+          uid: user.uid, name, email, balance: 0, totalDeposited: 0, totalWithdrawn: 0,
+          kycStatus: 'pending', referralCode: myRefCode, totalTrades: 0, wonTrades: 0, totalProfit: 0,
+          createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+        await db.ref('ref_codes/' + myRefCode).set(user.uid);
+        // Handle referral
+        if (refInput) {
+          const refSnap = await db.ref('ref_codes/' + refInput).once('value');
+          if (refSnap.val()) {
+            await db.ref('referrals/' + refSnap.val() + '/' + user.uid).set({
+              name, email, status: 'registered', joinedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+          }
+        }
+        showToast('✅ Account created!');
+      } catch (e) { showToast('❌ ' + e.message); }
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const pass = document.getElementById('loginPass').value;
+      if (!email || !pass) { showToast('Enter email & password'); return; }
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+        showToast('✅ Login successful!');
+      } catch (e) { showToast('❌ ' + e.message); }
+    }
+
+    function handleGoogleLogin() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithRedirect(provider).catch(e => showToast('❌ ' + e.message));
+    }
+
+    function handleLogout() {
+      if (confirm('Logout?')) { auth.signOut(); showToast('👋 Logged out'); }
+    }
+
+    // ===== 👁️ AUTH STATE =====
+    auth.onAuthStateChanged(async function(user) {
+      if (user) {
+        currentUser = user;
+        // handle redirect result
+        try {
+          const result = await auth.getRedirectResult();
+          if (result && result.user) {
+            const u = result.user;
+            const snap = await db.ref('users/' + u.uid).once('value');
+            if (!snap.val()) {
+              const myRefCode = 'REF_' + Math.random().toString(36).substr(2,6).toUpperCase();
+              await db.ref('users/' + u.uid).set({
+                uid: u.uid, name: u.displayName||'User', email: u.email, balance: 0,
+                totalDeposited: 0, totalWithdrawn: 0, kycStatus: 'pending', referralCode: myRefCode,
+                totalTrades: 0, wonTrades: 0, totalProfit: 0,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+              });
+              await db.ref('ref_codes/' + myRefCode).set(u.uid);
+            }
+          }
+        } catch(e) { console.log('Redirect result:', e.message); }
+
+        await loadUserData(user.uid);
+        startListeners(user.uid);
+        document.getElementById('authScreen').classList.add('hidden');
+        document.getElementById('appScreen').classList.add('visible');
+        initChart();
+        loadLeaderboard();
+        startTournamentCountdown();
+        initSupportChat();
+      } else {
+        currentUser = null;
+        document.getElementById('authScreen').classList.remove('hidden');
+        document.getElementById('appScreen').classList.remove('visible');
+      }
+    });
+
+    // ===== 📥 LOAD USER DATA =====
+    async function loadUserData(uid) {
+      try {
+        const snap = await db.ref('users/' + uid).once('value');
+        const data = snap.val();
+        if (data) {
+          balance = data.balance || 0;
+          totalDeposited = data.totalDeposited || 0;
+          totalWithdrawn = data.totalWithdrawn || 0;
+          totalTrades = data.totalTrades || 0;
+          wonTrades = data.wonTrades || 0;
+          todayPnl = data.todayPnl || 0;
+          updateBalanceUI();
+          updateStatsUI();
+          document.getElementById('profileName').textContent = data.name || 'User';
+          document.getElementById('userEmail').textContent = data.email || '';
+          const rc = data.referralCode || 'N/A';
+          document.getElementById('refCode').textContent = rc;
+          document.getElementById('refCodeDisplay').textContent = rc;
+          const avatar = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name||'U') + '&background=00E5FF&color=000&bold=true';
+          document.getElementById('userAvatar').src = avatar;
+          document.getElementById('profileAvatar').src = avatar;
+          if (data.kycStatus === 'approved') document.getElementById('kycStatus').textContent = '✅ Verified';
+          updateVIP(data.totalDeposited || 0);
+          loadTradeHistory(uid);
+          loadReferralStats(uid);
+        }
+      } catch (e) { console.error('Load error:', e); }
+    }
+
+    // ===== 🔄 REALTIME LISTENERS =====
+    function startListeners(uid) {
+      db.ref('users/' + uid + '/balance').on('value', snap => {
+        balance = snap.val() || 0; updateBalanceUI();
+      });
+      db.ref('transactions').orderByChild('userId').equalTo(uid).limitToLast(20)
+        .on('child_added', snap => addTransactionUI(snap.val()));
+    }
+
+    // ===== 🏆 VIP TIERS =====
+    function updateVIP(deposited) {
+      let tier = 'BRONZE', cls = 'vip-bronze', icon = '🥉';
+      if (deposited >= 100000) { tier='DIAMOND'; cls='vip-diamond'; icon='💎'; }
+      else if (deposited >= 25000) { tier='GOLD'; cls='vip-gold'; icon='🥇'; }
+      else if (deposited >= 5000) { tier='SILVER'; cls='vip-silver'; icon='🥈'; }
+      ['vipBadge','profileVipBadge'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.className = 'text-xs font-bold px-2 py-1 rounded-full ' + cls; el.textContent = icon + ' ' + tier; }
+      });
+    }
+
+    // ===== 💰 WALLET FUNCTIONS =====
+    function openModal(type) {
+      if (!currentUser && type !== 'support') { showToast('Please login first'); return; }
+      const id = type + 'Modal';
+      if (!document.getElementById(id)) return;
+      if (type === 'deposit') {
+        document.getElementById('depositModal').classList.add('active');
+        document.getElementById('depositStep1').classList.add('active');
+        document.getElementById('depositStep2').classList.remove('active');
+      } else if (type === 'withdraw') {
+        document.getElementById('withdrawBalance').textContent = formatINR(balance);
+        document.getElementById('withdrawModal').classList.add('active');
+      } else if (type === 'tradeHistory') {
+        renderTradeHistory();
+        document.getElementById('tradeHistoryModal').classList.add('active');
+      } else {
+        document.getElementById(id).classList.add('active');
+      }
+    }
+
+    function closeModal(type) {
+      const el = document.getElementById(type + 'Modal');
+      if (el) el.classList.remove('active');
+    }
+
+    function setDepAmt(v) { document.getElementById('depositAmount').value = v; }
+
+    function goToPayment() {
+      const amt = document.getElementById('depositAmount').value;
+      if (!amt || amt < 100) { showToast('Minimum ₹100'); return; }
+      window.open(INSTAMOJO + '?amount=' + amt, '_blank');
+      document.getElementById('depositStep1').classList.remove('active');
+      document.getElementById('depositStep2').classList.add('active');
+    }
+
+    function backToStep1() {
+      document.getElementById('depositStep2').classList.remove('active');
+      document.getElementById('depositStep1').classList.add('active');
+    }
+
+    async function submitDeposit() {
+      const amount = parseFloat(document.getElementById('depositAmount').value);
+      const paymentId = document.getElementById('paymentId').value.trim();
+      if (!amount || amount < 100) { showToast('Minimum ₹100'); return; }
+      if (!paymentId) { showToast('Enter Payment ID'); return; }
+      const ref = db.ref('deposit_requests').push();
+      const data = {
+        id: ref.key, userId: currentUser.uid, type: 'deposit', amount,
+        paymentId, utrNumber: document.getElementById('utrNumber').value.trim(),
+        method: 'instamojo', status: 'pending',
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      };
+      try {
+        await ref.set(data);
+        showToast('✅ Request submitted! Admin will verify soon.');
+        addTransactionUI(data);
+        closeModal('deposit');
+      } catch (e) { showToast('❌ ' + e.message); }
+    }
+
+    async function submitWithdraw() {
+      const amount = parseFloat(document.getElementById('withdrawAmount').value);
+      const method = document.getElementById('withdrawMethod').value;
+      if (!amount || amount < 200) { showToast('Minimum ₹200'); return; }
+      if (amount > balance) { showToast('Insufficient balance'); return; }
+      const details = {};
+      if (method === 'upi') details.upiId = document.getElementById('upiId').value;
+      else if (method === 'bank') { details.accName=document.getElementById('accName').value; details.accNum=document.getElementById('accNum').value; details.ifsc=document.getElementById('ifsc').value; }
+      else if (method === 'paytm') details.paytmNum = document.getElementById('paytmNum').value;
+      if (confirm('Withdraw ₹' + amount + ' via ' + method.toUpperCase() + '?')) {
+        const ref = db.ref('withdrawal_requests').push();
+        const data = { id:ref.key, userId:currentUser.uid, type:'withdraw', amount, method, ...details, status:'pending', timestamp:firebase.database.ServerValue.TIMESTAMP };
+        try {
+          await ref.set(data);
+          showToast('✅ Withdrawal requested!');
+          addTransactionUI(data);
+          closeModal('withdraw');
+        } catch (e) { showToast('❌ ' + e.message); }
+      }
+    }
+
+    // ===== 📋 KYC =====
+    async function submitKYC() {
+      const name = document.getElementById('kycName').value.trim();
+      const dob = document.getElementById('kycDob').value;
+      const idType = document.getElementById('kycIdType').value;
+      const idNum = document.getElementById('kycIdNum').value.trim();
+      if (!name || !dob || !idNum) { showToast('Please fill all fields'); return; }
+      try {
+        await db.ref('kyc_requests/' + currentUser.uid).set({
+          uid: currentUser.uid, name, dob, idType, idNum,
+          status: 'pending', submittedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+        await db.ref('users/' + currentUser.uid + '/kycStatus').set('submitted');
+        document.getElementById('kycStatus').textContent = '⏳ Submitted';
+        showToast('✅ KYC submitted for review!');
+        closeModal('kyc');
+      } catch (e) { showToast('❌ ' + e.message); }
+    }
+
+    // ===== 📜 TRANSACTION UI =====
+    function addTransactionUI(t) {
+      const container = document.getElementById('txnHistory');
+      if (!container) return;
+      if (container.querySelector('.text-center')) container.innerHTML = '';
+      const el = document.createElement('div');
+      el.className = 'bg-cardDark p-4 rounded-xl flex justify-between items-center border-l-4 ' +
+        (t.status==='pending' ? 'border-yellow-500' : t.type==='deposit' ? 'border-success' : 'border-danger');
+      el.id = 'txn-' + t.id;
+      const icon = t.type==='deposit' ? 'ri-add-circle-line' : 'ri-subtract-circle-line';
+      const color = t.type==='deposit' ? 'text-success' : 'text-danger';
+      const sign = t.type==='deposit' ? '+' : '-';
+      const badge = t.status==='pending' ? '<span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-lg">Pending</span>' : '';
+      const date = t.timestamp ? new Date(t.timestamp).toLocaleDateString('en-IN') : 'Just now';
+      el.innerHTML = '<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center"><i class="'+icon+' '+color+'"></i></div><div><div class="font-bold">'+(t.type==='deposit'?'Deposit':'Withdrawal')+'</div><div class="text-xs text-gray-400">'+date+'</div></div></div><div class="text-right"><div class="font-bold '+color+'">'+sign+'₹'+formatINR(t.amount)+'</div>'+badge+'</div>';
+      container.insertBefore(el, container.firstChild);
+    }
+
+    // ===== 📊 CHART =====
+    function initChart() {
+      const container = document.getElementById('chart');
+      if (!container || chart) return;
+      const options = {
+        layout: { background:{color:'#1E1E1E'}, textColor:'#d1d4dc' },
+        grid: { vertLines:{color:'#2B2B43'}, horzLines:{color:'#2B2B43'} },
+        width: container.clientWidth, height: container.clientHeight || 280,
+        timeScale: { borderColor:'#2B2B43', timeVisible:true }
+      };
+      chart = LightweightCharts.createChart(container, options);
+      series = chart.addCandlestickSeries({
+        upColor:'#00C853', downColor:'#D50000', borderVisible:false,
+        wickUpColor:'#00C853', wickDownColor:'#D50000'
+      });
+      series.setData(generateCandles(80));
+      setInterval(() => {
+        currentPrice += (Math.random()-0.5) * 5000;
+        const time = Math.floor(Date.now()/1000);
+        series.update({ time, open:currentPrice, high:currentPrice+3000, low:currentPrice-3000, close:currentPrice+(Math.random()-0.5)*2000 });
+        document.getElementById('assetPrice').textContent = formatINR(Math.floor(currentPrice));
+      }, 2000);
+      window.addEventListener('resize', () => {
+        if (chart) chart.resize(container.clientWidth, container.clientHeight||280);
+      });
+    }
+
+    function generateCandles(count) {
+      const data = []; let time = Math.floor(Date.now()/1000)-count*60; let price = currentPrice;
+      for (let i=0;i<count;i++) {
+        const open=price, close=open+(Math.random()-0.5)*6000;
+        data.push({time:time+i*60,open,high:Math.max(open,close)+2000,low:Math.min(open,close)-2000,close});
+        price=close;
+      }
+      return data;
+    }
+
+    // ===== 🎯 TRADE =====
+    function placeTrade(dir) {
+      if (!currentUser) { showToast('Please login first'); return; }
+      const amt = parseFloat(document.getElementById('tradeAmount').value);
+      const duration = parseInt(document.getElementById('tradeTime').value);
+      if (!amt || amt < 10) { showToast('Minimum trade ₹10'); return; }
+      if (amt > balance) { showToast('Insufficient balance'); return; }
+
+      // Deduct immediately, show timer
+      balance -= amt;
+      updateBalanceUI();
+      db.ref('users/' + currentUser.uid + '/balance').set(balance);
+
+      showTradeTimer(dir, amt, duration);
+
+      setTimeout(() => {
+        hideTradeTimer();
+        const won = Math.random() > 0.45;
+        const profit = won ? amt * 0.82 : 0;
+        const pnl = won ? profit : -amt;
+
+        balance += won ? amt + profit : 0;
+        todayPnl += pnl;
+        totalTrades++;
+        if (won) wonTrades++;
+
+        db.ref('users/' + currentUser.uid).update({
+          balance: balance,
+          totalTrades, wonTrades,
+          totalProfit: firebase.database.ServerValue.increment(won ? profit : -amt),
+          todayPnl: firebase.database.ServerValue.increment(pnl)
+        });
+
+        // Log trade history
+        const tradeEntry = {
+          asset: currentAsset.name, direction: dir, amount: amt,
+          profit: pnl, won, duration,
+          timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+        db.ref('users/' + currentUser.uid + '/tradeHistory').push(tradeEntry);
+        tradeHistoryLocal.unshift({ ...tradeEntry, timestamp: Date.now() });
+
+        updateBalanceUI();
+        updateStatsUI();
+        showToast(won ? '🎉 Won! +₹' + profit.toFixed(2) : '😔 Lost -₹' + amt.toFixed(2));
+        addRecentTrade({ asset:currentAsset.name, dir, amount:amt, profit:pnl, won });
+
+        // Update leaderboard
+        db.ref('leaderboard/' + currentUser.uid).update({
+          name: document.getElementById('profileName').textContent,
+          totalProfit: firebase.database.ServerValue.increment(won ? profit : -amt),
+          trades: firebase.database.ServerValue.increment(1),
+          uid: currentUser.uid
+        });
+      }, duration * 1000);
+    }
+
+    // ===== ⏱️ TRADE TIMER =====
+    function showTradeTimer(dir, amt, duration) {
+      const overlay = document.getElementById('tradeTimerOverlay');
+      document.getElementById('timerTradeInfo').textContent = currentAsset.name + ' · ' + dir.toUpperCase();
+      document.getElementById('timerAmtInfo').textContent = '₹' + amt.toFixed(2);
+      overlay.classList.add('show');
+      const arc = document.getElementById('timerArc');
+      const timerText = document.getElementById('timerText');
+      const circumference = 327;
+      let remaining = duration;
+      timerText.textContent = remaining;
+      arc.style.strokeDashoffset = 0;
+      const interval = setInterval(() => {
+        remaining--;
+        timerText.textContent = remaining;
+        arc.style.strokeDashoffset = circumference * (1 - remaining/duration);
+        if (remaining <= 0) clearInterval(interval);
+      }, 1000);
+    }
+
+    function hideTradeTimer() {
+      document.getElementById('tradeTimerOverlay').classList.remove('show');
+    }
+
+    // ===== 🏆 LEADERBOARD =====
+    async function loadLeaderboard() {
+      try {
+        const snap = await db.ref('leaderboard').orderByChild('totalProfit').limitToLast(10).once('value');
+        const data = [];
+        snap.forEach(c => data.unshift(c.val()));
+        const container = document.getElementById('leaderboard');
+        if (!data.length) { container.innerHTML = '<div class="text-center text-gray-500 py-6 text-sm">No data yet. Be the first!</div>'; return; }
+        container.innerHTML = '';
+        data.forEach((item, idx) => {
+          const rank = idx+1;
+          const rankClass = rank===1?'top1':rank===2?'top2':rank===3?'top3':'';
+          const rankIcon = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+          const isMe = currentUser && item.uid === currentUser.uid;
+          const el = document.createElement('div');
+          el.className = 'lb-row' + (isMe?' border-primary/30 bg-primary/5':'');
+          el.innerHTML = '<div class="lb-rank '+rankClass+'">'+rankIcon+'</div><div class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">'+((item.name||'?')[0].toUpperCase())+'</div><div class="flex-1"><div class="font-bold text-sm">'+(item.name||'Anonymous')+(isMe?' <span class="text-xs text-primary">(You)</span>':'')+'</div><div class="text-xs text-gray-400">'+(item.trades||0)+' trades</div></div><div class="text-success font-bold text-sm">+₹'+formatINR(Math.max(0,item.totalProfit||0))+'</div>';
+          container.appendChild(el);
+        });
+        // My rank
+        if (currentUser) {
+          const mySnap = await db.ref('leaderboard/' + currentUser.uid).once('value');
+          const myData = mySnap.val();
+          if (myData) {
+            document.getElementById('myRankName').textContent = myData.name || 'You';
+            document.getElementById('myRankProfit').textContent = '₹' + formatINR(Math.max(0, myData.totalProfit||0));
+          }
+        }
+      } catch(e) { console.error('Leaderboard error:', e); }
+    }
+
+    // ===== ⏳ TOURNAMENT COUNTDOWN =====
+    function startTournamentCountdown() {
+      function update() {
+        const now = new Date();
+        const nextSunday = new Date(now);
+        nextSunday.setDate(now.getDate() + (7 - now.getDay()) % 7 || 7);
+        nextSunday.setHours(23,59,59,0);
+        const diff = nextSunday - now;
+        const h = Math.floor(diff/3600000);
+        const m = Math.floor((diff%3600000)/60000);
+        const s = Math.floor((diff%60000)/1000);
+        document.getElementById('tournamentCountdown').textContent = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+      }
+      update(); setInterval(update, 1000);
+    }
+
+    // ===== 🎁 REFERRAL =====
+    async function loadReferralStats(uid) {
+      try {
+        const snap = await db.ref('referrals/' + uid).once('value');
+        const refs = snap.val() || {};
+        const count = Object.keys(refs).length;
+        const earned = count * 100;
+        document.getElementById('refCount').textContent = count;
+        document.getElementById('refEarned').textContent = '₹' + earned;
+        document.getElementById('refPending').textContent = '₹' + (count * 0 || 0);
+      } catch(e) {}
+    }
+
+    function copyRefCode() {
+      const code = document.getElementById('refCodeDisplay').textContent;
+      navigator.clipboard.writeText(code).then(() => showToast('✅ Code copied!')).catch(() => showToast('Code: ' + code));
+    }
+
+    function copyRefLink() {
+      const code = document.getElementById('refCodeDisplay').textContent;
+      const link = window.location.href.split('?')[0] + '?ref=' + code;
+      navigator.clipboard.writeText(link).then(() => showToast('✅ Link copied!')).catch(() => showToast('Copied!'));
+    }
+
+    function shareWhatsApp() {
+      const code = document.getElementById('refCodeDisplay').textContent;
+      const msg = encodeURIComponent('🚀 Join TradeX Pro and earn real money trading! Use my referral code *' + code + '* to get started. Sign up here: ' + window.location.href.split('?')[0]);
+      window.open('https://wa.me/?text=' + msg, '_blank');
+    }
+
+    // ===== 📈 TRADE HISTORY =====
+    async function loadTradeHistory(uid) {
+      try {
+        const snap = await db.ref('users/' + uid + '/tradeHistory').limitToLast(50).once('value');
+        tradeHistoryLocal = [];
+        snap.forEach(c => tradeHistoryLocal.unshift(c.val()));
+      } catch(e) {}
+    }
+
+    function renderTradeHistory() {
+      const container = document.getElementById('tradeHistoryList');
+      if (!tradeHistoryLocal.length) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-8">No trades yet</div>'; return;
+      }
+      container.innerHTML = '';
+      tradeHistoryLocal.slice(0,30).forEach(t => {
+        const el = document.createElement('div');
+        el.className = 'bg-gray-800/50 p-3 rounded-xl flex justify-between items-center';
+        const date = t.timestamp ? new Date(t.timestamp).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}) : '';
+        el.innerHTML = '<div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full '+(t.won?'bg-success':'bg-danger')+'"></div><div><div class="text-sm font-bold">'+(t.asset||'?')+' · '+(t.direction||'').toUpperCase()+'</div><div class="text-xs text-gray-400">'+date+'</div></div></div><div class="text-right"><div class="font-bold '+(t.won?'text-success':'text-danger')+'">'+(t.won?'+':'')+formatINR(t.profit||0)+'</div><div class="text-xs text-gray-400">₹'+formatINR(t.amount||0)+'</div></div>';
+        container.appendChild(el);
+      });
+    }
+
+    // ===== 💬 SUPPORT CHAT =====
+    const SUPPORT_REPLIES = [
+      'Hello! How can I help you today? 😊',
+      'Thanks for reaching out. Our team will assist you shortly.',
+      'For deposit issues, please share your Payment ID and we\'ll verify it within 30 mins.',
+      'Withdrawals are processed within 24 hours on business days.',
+      'Please make sure your KYC is verified for smooth withdrawals.',
+      'Is there anything else I can help you with?',
+      'I\'ve noted your concern. Please allow us some time to resolve this. 🙏',
+    ];
+    let replyIdx = 0;
+
+    function initSupportChat() {
+      const container = document.getElementById('chatMessages');
+      addChatBubble(container, 'Hi there! 👋 Welcome to TradeX Pro Support. How can we help you?', false);
+    }
+
+    function addChatBubble(container, text, isUser) {
+      const div = document.createElement('div');
+      div.className = 'flex ' + (isUser ? 'justify-end' : 'justify-start');
+      div.innerHTML = '<div class="chat-msg ' + (isUser ? 'chat-user' : 'chat-support') + '">' + text + '</div>';
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function sendChatMsg() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      const container = document.getElementById('chatMessages');
+
+      // Save to Firebase
+      if (currentUser) {
+        db.ref('support_chats/' + currentUser.uid).push({
+          from: 'user', message: text, timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+
+      addChatBubble(container, text, true);
+      input.value = '';
+
+      // Auto reply after delay
+      setTimeout(() => {
+        const reply = SUPPORT_REPLIES[replyIdx % SUPPORT_REPLIES.length];
+        replyIdx++;
+        addChatBubble(container, reply, false);
+        if (currentUser) {
+          db.ref('support_chats/' + currentUser.uid).push({
+            from: 'support', message: reply, timestamp: firebase.database.ServerValue.TIMESTAMP
+          });
+        }
+      }, 1200);
+    }
+
+    // ===== 🎨 ASSET SELECTION =====
+    function selectAsset(chip, name, price, icon) {
+      document.querySelectorAll('#home .asset-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentAsset = { name, price, sub: ASSETS[name]?.sub || name };
+      document.getElementById('homeAssetName').textContent = name;
+      document.getElementById('homeAssetSub').textContent = currentAsset.sub;
+      const iconEl = document.getElementById('homeAssetIcon');
+      if (icon) { iconEl.src = icon; iconEl.style.display=''; } else iconEl.style.display='none';
+      currentPrice = price;
+      document.getElementById('assetPrice').textContent = formatINR(price);
+    }
+
+    function selectTradeAsset(chip, name, price) {
+      document.querySelectorAll('#trade .asset-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentAsset = { name, price, sub: ASSETS[name]?.sub || name };
+      currentPrice = price;
+    }
+
+    // ===== 🎨 UI HELPERS =====
+    function switchTab(tabId) {
+      document.querySelectorAll('.page-section').forEach(s => { s.classList.remove('active'); s.style.display='none'; });
+      const section = document.getElementById(tabId);
+      if (section) {
+        if (tabId === 'trade') {
+          section.style.display = 'flex';
+          setTimeout(() => { if(chart) chart.resize(document.getElementById('chart').clientWidth, document.getElementById('chart').clientHeight||280); }, 120);
+        } else {
+          section.style.display = 'block';
+        }
+        section.classList.add('active');
+      }
+      // Update nav
+      document.querySelectorAll('.nav-item').forEach(i => {
+        i.classList.remove('active');
+        const ic = i.querySelector('i');
+        if (ic) ic.className = ic.className.replace('-fill','-line');
+      });
+    }
+
+    function switchTabNav(e, tabId) {
+      switchTab(tabId);
+      const navItem = e.currentTarget;
+      navItem.classList.add('active');
+      const ic = navItem.querySelector('i');
+      if (ic) ic.className = ic.className.replace('-line','-fill');
+      if (tabId === 'rank') loadLeaderboard();
+    }
+
+    function addRecentTrade(t) {
+      const container = document.getElementById('recentTrades');
+      if (!container) return;
+      if (container.querySelector('.text-center')) container.innerHTML = '';
+      const el = document.createElement('div');
+      el.className = 'bg-cardDark p-3 rounded-xl flex justify-between items-center';
+      el.innerHTML = '<div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full '+(t.won?'bg-success':'bg-danger')+'"></div><span class="text-sm font-bold">'+t.asset+'</span><span class="text-xs bg-gray-700 px-2 py-0.5 rounded">'+(t.dir).toUpperCase()+'</span></div><div class="text-right"><span class="font-bold '+(t.won?'text-success':'text-danger')+'">'+(t.won?'+':'−')+'₹'+Math.abs(t.profit).toFixed(0)+'</span></div>';
+      container.insertBefore(el, container.firstChild);
+      if (container.children.length > 5) container.removeChild(container.lastChild);
+    }
+
+    function updateStatsUI() {
+      document.getElementById('todayPnl').textContent = (todayPnl >= 0 ? '+' : '') + '₹' + formatINR(todayPnl);
+      document.getElementById('todayPnl').className = 'font-bold text-sm ' + (todayPnl >= 0 ? 'text-success' : 'text-danger');
+      document.getElementById('winRateDisplay').textContent = totalTrades > 0 ? Math.round((wonTrades/totalTrades)*100) + '%' : '0%';
+      document.getElementById('tradeCountDisplay').textContent = totalTrades;
+    }
+
+    function formatINR(num) {
+      return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+    }
+
+    function updateBalanceUI() {
+      ['balance','walletBalance','withdrawBalance'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = formatINR(balance);
+      });
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    // ===== 🚀 INIT =====
+    window.addEventListener('load', () => {
+      // Withdraw method toggle
+      const ms = document.getElementById('withdrawMethod');
+      if (ms) ms.addEventListener('change', e => {
+        document.getElementById('upiField').style.display = e.target.value==='upi'?'block':'none';
+        document.getElementById('bankField').style.display = e.target.value==='bank'?'block':'none';
+        document.getElementById('paytmField').style.display = e.target.value==='paytm'?'block':'none';
+      });
+      // Modal close on outside click
+      document.querySelectorAll('.modal').forEach(m => {
+        m.onclick = e => { if (e.target===m) m.classList.remove('active'); };
+      });
+      // Trade section flex
+      const tradeSection = document.getElementById('trade');
+      if (tradeSection) { tradeSection.style.display='none'; }
+
+      document.getElementById('logoutBtn').onclick = handleLogout;
+
+      // Check for ref param in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const refParam = urlParams.get('ref');
+      if (refParam) {
+        const refInput = document.getElementById('signupRef');
+        if (refInput) { refInput.value = refParam; toggleAuth('signup'); }
+      }
+    });
+  </script>
+</body>
+</html>
